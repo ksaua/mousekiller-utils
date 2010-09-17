@@ -1,6 +1,7 @@
 package no.saua.mousekiller;
 
 import java.awt.Image;
+import java.awt.image.BufferedImage;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -15,7 +16,7 @@ public class Tileset {
 		int rotation;
 	}
 	
-	Image tileimage;
+	BufferedImage tileimage;
 	Tiletype[] tiletypes;
 	
 	public Image getImage() {

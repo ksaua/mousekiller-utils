@@ -1,27 +1,37 @@
 package no.saua.mousekiller;
 
+import java.awt.AlphaComposite;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Composite;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Paint;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.io.File;
 import java.io.IOException;
 
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JTextField;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import no.saua.mousekiller.Tileset.Tiletype;
 
 public class Mapeditor extends JFrame implements MouseListener, MouseMotionListener {
-	
+	public static final Color bgcolor = new Color(0,0,0);
 	public static int TILESIZE = 32;
 	
 	private class Tilechooser extends JPanel implements MouseListener {
@@ -91,12 +101,27 @@ public class Mapeditor extends JFrame implements MouseListener, MouseMotionListe
 		public void paintComponent(Graphics g) {
 			Graphics2D g2 = (Graphics2D) g;
 			if (map != null) {
+				g2.setColor(bgcolor);
+				g2.fillRect(0, 0, getWidth(), getHeight());
 				g2.translate(0, getHeight());
 				g2.scale(1, -1);
-				for (int tiley = 0; tiley < map.sizey; tiley++) {
-					for (int tilex = 0; tilex < map.sizex; tilex++) {
-						drawTile(g2, map.tiles[tiley][tilex], tilex, tiley);
-					}	
+				
+				// Draw all tiles regardless of height
+				if (!only_show_height) {
+					for (int tilez = 0; tilez < map.sizez; tilez++) {
+						for (int tiley = 0; tiley < map.sizey; tiley++) {
+							for (int tilex = 0; tilex < map.sizex; tilex++) {
+								drawTile(g2, map.tiles[tilez][tiley][tilex], tilex, tiley);
+							}	
+						}
+					}
+				} else { // Draw only a selected height
+					System.out.println("Not drawing everything");
+					for (int tiley = 0; tiley < map.sizey; tiley++) {
+						for (int tilex = 0; tilex < map.sizex; tilex++) {
+							drawTile(g2, map.tiles[selected_height][tiley][tilex], tilex, tiley);
+						}	
+					}
 				}
 				
 				if (grid) {
@@ -111,6 +136,7 @@ public class Mapeditor extends JFrame implements MouseListener, MouseMotionListe
 			}
 		}
 		private void drawTile(Graphics2D g, int tileId, int tilex, int tiley) {
+			if (tileId == -1) return; // Draw a background color?
 			Tiletype tt = map.tileset.tiletypes[tileId];
 			int ix = tt.image_x * TILESIZE;
 			int iy = tt.image_y * TILESIZE;
@@ -133,6 +159,9 @@ public class Mapeditor extends JFrame implements MouseListener, MouseMotionListe
 	Tilechooser tilechooser;
 	boolean pressed;
 	
+	int selected_height;
+	boolean only_show_height;
+	
 	public Mapeditor() throws IOException {
 		super("Mapeditor");
 		
@@ -150,7 +179,8 @@ public class Mapeditor extends JFrame implements MouseListener, MouseMotionListe
 		add(maprenderer, BorderLayout.CENTER);
 		add(tilechooser, BorderLayout.SOUTH);
 		
-		JPanel side = new JPanel(new FlowLayout());
+		JPanel side = new JPanel();
+		side.setLayout(new BoxLayout(side, BoxLayout.Y_AXIS));
 		JButton save = new JButton("Save");
 		save.addActionListener(new ActionListener() {
 			@Override
@@ -161,8 +191,50 @@ public class Mapeditor extends JFrame implements MouseListener, MouseMotionListe
 		side.add(save);
 		add(side, BorderLayout.WEST);
 		
+		JTextField height = new JTextField("0");
+		height.addKeyListener(new KeyListener() {
+			
+			@Override
+			public void keyTyped(KeyEvent arg0) {
+				if (Character.isDigit(arg0.getKeyChar())) {
+					set_height(Integer.parseInt(String.valueOf(arg0.getKeyChar())));
+				}
+			}
+			public void keyReleased(KeyEvent arg0) {}
+			public void keyPressed(KeyEvent arg0) {}
+		});
+		side.add(height);
+		final JCheckBox onlyshowheight = new JCheckBox("Only show selected height");
+		onlyshowheight.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				set_only_show_height(onlyshowheight.isSelected());
+			}
+		});
+		side.add(onlyshowheight);
+		
+		JButton erase = new JButton("Erase");
+		erase.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				tilechooser.selected = -1;
+				tilechooser.repaint();
+			}
+		});
+		side.add(erase);
+		
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		pack();
+	}
+	
+	public void set_only_show_height(boolean b) {
+		only_show_height = b;
+		System.out.println(b);
+		maprenderer.repaint();
+	}
+	
+	public void set_height(int height) {
+		selected_height = height;
+		maprenderer.repaint();
 	}
 	
 	public void save() {
@@ -179,14 +251,15 @@ public class Mapeditor extends JFrame implements MouseListener, MouseMotionListe
 	}
 	
 	public void changeTileToSelected(int x, int y) {
-		if (tilechooser.selected == -1) return;
+//		if (tilechooser.selected == -1) return;
 		
 		int ny = maprenderer.getHeight() - y;
 		int tx = x / TILESIZE;
 		int ty = ny / TILESIZE;
+		int tz = selected_height;
 		
-		System.out.println(x + ", " + y + " => " + ny +  ", " + maprenderer.getHeight() + " : " + tx + ", " + ty);
-		maprenderer.map.tiles[ty][tx] = tilechooser.selected;
+		System.out.println(x + ", " + y + " => " + ny +  ", " + maprenderer.getHeight() + " : " + tx + ", " + ty + ", " + tz);
+		maprenderer.map.tiles[tz][ty][tx] = tilechooser.selected;
 		maprenderer.repaint();
 	}
 

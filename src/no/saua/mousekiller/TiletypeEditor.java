@@ -11,7 +11,7 @@ public class TiletypeEditor {
 		DataOutputStream o = new DataOutputStream(new FileOutputStream(f));
 
 		o.writeUTF("tiles1.png");
-		o.writeByte(16);
+		o.writeByte(20);
 
 		/*
 		 * byte num_tiletypes
@@ -71,6 +71,15 @@ public class TiletypeEditor {
 			o.writeByte(1);
 			o.writeByte(i);
 			o.writeBoolean(false);
+			o.writeBoolean(false);
+		}
+		
+		// Tunnel opening 16, 17, 18, 19
+		for (int i = 0; i < 4; i++) {
+			o.writeByte(2);
+			o.writeByte(1);
+			o.writeByte(i);
+			o.writeBoolean(true);
 			o.writeBoolean(false);
 		}
 	}
